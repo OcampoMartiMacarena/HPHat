@@ -1,16 +1,19 @@
 import flet as ft
 from flet import Icons, Colors
 from .model_presenter import Presenter
+from Service.dialogue_generator import reset_hat_session
 
 class HatView(ft.Container):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.presenter = Presenter(self)
+        self.is_active = False
+
         self.mic_button = ft.IconButton(
             icon=Icons.MIC,
             icon_size=80,
             icon_color=Colors.WHITE,
-            on_click=self.on_mic_click,
+            on_click=self.toggle_microphone,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=100),
                 padding=20,
@@ -28,25 +31,28 @@ class HatView(ft.Container):
             )
         )
 
-    def on_mic_click(self, e):
-        print("🟢 Mic button clicked")
-        self.page.run_task(self._handle_recording)
+    def toggle_microphone(self, e):
+        if not self.is_active:
+            print("🟢 Micrófono activado - Comenzando diálogo continuo")
+            self.is_active = True
+            self.mic_button.icon = Icons.STOP
+            self.update()
+            reset_hat_session()  # Reiniciamos la sesión al comenzar una nueva conversación
+            self.page.run_task(self.presenter.start_conversational_loop)
+        else:
+            print("🔴 Micrófono detenido por el usuario")
+            self.presenter.stop_loop = True
+            self.reset_microphone_state()
 
-    async def _handle_recording(self):
-        try:
-            self.mic_button.disabled = True
-            self.mic_button.update()
+    def reset_microphone_state(self):
+        """Reset the microphone button to its initial state"""
+        self.is_active = False
+        self.mic_button.icon = Icons.MIC
+        self.update()
 
-            result = await self.presenter.capture_voice()
-            if result:
-                print("📝 Base64 del audio grabado (primeros 60 caracteres):")
-                print(result[:60] + "...")
-
-        except Exception as e:
-            print(f"❌ Error en _handle_recording: {e}")
-        finally:
-            self.mic_button.disabled = False
-            self.mic_button.update()
+    def show_verdict(self, resultado):
+        """Muestra el veredicto final del Sombrero Seleccionador en consola"""
+        print(f"🏆 Veredicto final: {resultado}")
 
     def did_mount(self):
         print("✅ HatView montado")
